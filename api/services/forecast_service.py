@@ -1,88 +1,34 @@
-import joblib
 import pandas as pd
 
 from api.app.config import PROJECT_ROOT
 
 
-MODEL_PATH = PROJECT_ROOT / "models" / "random_forest_demand_model.pkl"
-FEATURE_DIR = PROJECT_ROOT / "models" / "features"
-DATA_DIR = PROJECT_ROOT / "Data" / "raw"
+FORECAST_PATH = PROJECT_ROOT / "Data" / "raw" / "forecast_output.csv"
 
 
 class ForecastService:
 
     def __init__(self):
-        self.model = None
-        self.feature_columns = None
+        self.forecast_df = None
 
-    def load_model(self):
-        if self.model is None:
-            self.model = joblib.load(MODEL_PATH)
+    def load_forecast(self):
+        if self.forecast_df is None:
 
-        return self.model
+            if not FORECAST_PATH.exists():
+                raise FileNotFoundError(
+                    f"Forecast file not found: {FORECAST_PATH}"
+                )
 
-    def load_features(self):
-        if self.feature_columns is None:
-            self.feature_columns = pd.read_csv(
-                FEATURE_DIR / "feature_columns.csv"
-            )["Feature"].tolist()
+            self.forecast_df = pd.read_csv(FORECAST_PATH)
 
-        return self.feature_columns
+            self.forecast_df["Date"] = pd.to_datetime(
+                self.forecast_df["Date"]
+            )
+
+        return self.forecast_df
 
     def generate_forecast(self):
-        model = self.load_model()
-        feature_columns = self.load_features()
-
-        X_test = pd.read_csv(
-            FEATURE_DIR / "X_test.csv"
-        )
-
-        X_test = X_test[feature_columns]
-
-        predictions = model.predict(X_test)
-
-        forecast_df = pd.DataFrame({
-            "Predicted_Demand": predictions
-        })
-
-        forecast_df["Predicted_Demand"] = (
-            forecast_df["Predicted_Demand"]
-            .clip(lower=0)
-            .round(2)
-        )
-
-        sales_df = pd.read_csv(
-            DATA_DIR / "sales.csv"
-        )
-
-        sales_df["Date"] = pd.to_datetime(
-            sales_df["Date"]
-        )
-
-        sales_mapping = (
-            sales_df
-            .sort_values(["Date", "SKU"])
-            .reset_index(drop=True)
-        )
-
-        test_rows = len(forecast_df)
-
-        test_mapping = (
-            sales_mapping
-            .iloc[-test_rows:]
-            [["Date", "SKU"]]
-            .reset_index(drop=True)
-        )
-
-        forecast_output = pd.concat(
-            [
-                test_mapping,
-                forecast_df.reset_index(drop=True)
-            ],
-            axis=1
-        )
-
-        return forecast_output
+        return self.load_forecast()
 
 
 forecast_service = ForecastService()

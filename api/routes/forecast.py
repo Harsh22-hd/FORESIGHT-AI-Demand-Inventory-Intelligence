@@ -26,7 +26,7 @@ def get_forecast(
     except FileNotFoundError:
         raise HTTPException(
             status_code=404,
-            detail="Forecast files not found"
+            detail="Forecast file not found"
         )
 
     except Exception as e:
